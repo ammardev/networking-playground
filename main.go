@@ -58,13 +58,13 @@ func main() {
 			version:            buffer[0] >> 4,
 			ihl:                buffer[0] & 0x0F,
 			typeOfService:      buffer[1],
-			totalLength:        uint16(buffer[2])<<8 + uint16(buffer[3]),
-			identification:     uint16(buffer[4])<<8 + uint16(buffer[5]),
+			totalLength:        BytesToUInt16(buffer[2], buffer[3]),
+			identification:     BytesToUInt16(buffer[4], buffer[5]),
 			flags:              buffer[6] >> 5,
-			fragmentOffset:     (uint16(buffer[6])<<8 + uint16(buffer[7])) & 0b00011111,
+			fragmentOffset:     (BytesToUInt16(buffer[6], buffer[7])) & 0b00011111,
 			timeToLive:         buffer[8],
 			protocol:           buffer[9],
-			headerChecksum:     uint16(buffer[10])<<8 + uint16(buffer[11]),
+			headerChecksum:     BytesToUInt16(buffer[10], buffer[11]),
 			sourceAddress:      [4]byte{buffer[12], buffer[13], buffer[14], buffer[15]},
 			destinationAddress: [4]byte{buffer[16], buffer[17], buffer[18], buffer[19]},
 		}
@@ -90,4 +90,8 @@ func main() {
 
 		fmt.Printf("%+v", packet)
 	}
+}
+
+func BytesToUInt16(msByte byte, lsByte byte) uint16 {
+	return uint16(msByte)<<8 + uint16(lsByte)
 }
