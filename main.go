@@ -27,13 +27,18 @@ func (p Protocol) String() string {
 type Segment struct {
 }
 
+type PacketFlags struct {
+	dontFragment  bool
+	moreFragments bool
+}
+
 type Packet struct {
 	version            byte // 4 bits
 	ihl                byte // 4 bits
 	typeOfService      byte
 	totalLength        uint16
 	identification     uint16
-	flags              byte   // 3 bits
+	flags              PacketFlags
 	fragmentOffset     uint16 // 13 bits
 	timeToLive         byte
 	protocol           Protocol
@@ -68,7 +73,7 @@ func main() {
 			typeOfService:      buffer[1],
 			totalLength:        BytesToUInt16(buffer[2], buffer[3]),
 			identification:     BytesToUInt16(buffer[4], buffer[5]),
-			flags:              buffer[6] >> 5,
+			flags:              PacketFlags{buffer[6]&0b010 != 0, buffer[6]&0b001 != 0},
 			fragmentOffset:     (BytesToUInt16(buffer[6], buffer[7])) & 0b00011111,
 			timeToLive:         buffer[8],
 			protocol:           Protocol(buffer[9]),
@@ -83,8 +88,8 @@ func main() {
 		fmt.Println("   |Version|  IHL  |Type of Service|          Total Length         |")
 		fmt.Printf("   | %s  |   %d   |       %d       |               %d              |\n", packet.getVersion(), packet.ihl, packet.typeOfService, packet.totalLength)
 		fmt.Println("   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+")
-		fmt.Println("   |         Identification        |Flags|      Fragment Offset    |")
-		fmt.Printf("   |            %d              |  %d  |            %d            |\n", packet.identification, packet.flags, packet.fragmentOffset)
+		fmt.Println("   |         Identification        |0|DF|MF|      Fragment Offset    |")
+		fmt.Printf("   |            %d              |0|%d|%d|            %d            |\n", packet.identification, boolToInt(packet.flags.dontFragment), boolToInt(packet.flags.moreFragments), packet.fragmentOffset)
 		fmt.Println("   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+")
 		fmt.Println("   |  Time to Live |    Protocol   |         Header Checksum       |")
 		fmt.Printf("   | %d          |       %s       |               %d              |\n", packet.timeToLive, packet.protocol, packet.headerChecksum)
@@ -102,4 +107,12 @@ func main() {
 
 func BytesToUInt16(msByte byte, lsByte byte) uint16 {
 	return uint16(msByte)<<8 + uint16(lsByte)
+}
+
+func boolToInt(b bool) byte {
+	if b {
+		return 1
+	}
+
+	return 0
 }
