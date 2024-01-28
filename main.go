@@ -8,6 +8,12 @@ import (
 
 const BUFFER_SIZE = 100
 
+type IPAddress [4]byte
+
+func (ip IPAddress) String() string {
+	return fmt.Sprintf("%d.%d.%d.%d", ip[0], ip[1], ip[2], ip[3])
+}
+
 type Segment struct {
 }
 
@@ -22,22 +28,14 @@ type Packet struct {
 	timeToLive         byte
 	protocol           byte
 	headerChecksum     uint16
-	sourceAddress      [4]byte
-	destinationAddress [4]byte
+	sourceAddress      IPAddress
+	destinationAddress IPAddress
 	options            []byte
 	segment            Segment
 }
 
 func (p Packet) getVersion() string {
 	return fmt.Sprintf("IPv%d", p.version)
-}
-
-func (p Packet) getSourceAddress() string {
-	return fmt.Sprintf("%d.%d.%d.%d", p.sourceAddress[0], p.sourceAddress[1], p.sourceAddress[2], p.sourceAddress[3])
-}
-
-func (p Packet) getDestinationAddress() string {
-	return fmt.Sprintf("%d.%d.%d.%d", p.destinationAddress[0], p.destinationAddress[1], p.destinationAddress[2], p.destinationAddress[3])
 }
 
 func main() {
@@ -65,8 +63,8 @@ func main() {
 			timeToLive:         buffer[8],
 			protocol:           buffer[9],
 			headerChecksum:     BytesToUInt16(buffer[10], buffer[11]),
-			sourceAddress:      [4]byte{buffer[12], buffer[13], buffer[14], buffer[15]},
-			destinationAddress: [4]byte{buffer[16], buffer[17], buffer[18], buffer[19]},
+            sourceAddress:      IPAddress(buffer[12:16]),
+            destinationAddress: IPAddress(buffer[16:21]),
 		}
 
 		fmt.Println("    0                   1                   2                   3")
@@ -82,10 +80,10 @@ func main() {
 		fmt.Printf("   | %d          |       %d       |               %d              |\n", packet.timeToLive, packet.protocol, packet.headerChecksum)
 		fmt.Println("   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+")
 		fmt.Println("   |                       Source Address                          |")
-		fmt.Printf("   |                       %s                                     |\n", packet.getSourceAddress())
+		fmt.Printf("   |                       %s                                     |\n", packet.sourceAddress)
 		fmt.Println("   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+")
 		fmt.Println("   |                   Destination Address                        |")
-		fmt.Printf("   |                       %s                                     |\n", packet.getDestinationAddress())
+		fmt.Printf("   |                       %s                                     |\n", packet.destinationAddress)
 		fmt.Println("   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+")
 
 		fmt.Printf("%+v", packet)
