@@ -14,6 +14,16 @@ func (ip IPAddress) String() string {
 	return fmt.Sprintf("%d.%d.%d.%d", ip[0], ip[1], ip[2], ip[3])
 }
 
+type Protocol byte
+
+func (p Protocol) String() string {
+	return map[Protocol]string{
+		1:  "ICMP",
+		6:  "TCP",
+		17: "UDP",
+	}[p]
+}
+
 type Segment struct {
 }
 
@@ -26,7 +36,7 @@ type Packet struct {
 	flags              byte   // 3 bits
 	fragmentOffset     uint16 // 13 bits
 	timeToLive         byte
-	protocol           byte
+	protocol           Protocol
 	headerChecksum     uint16
 	sourceAddress      IPAddress
 	destinationAddress IPAddress
@@ -61,10 +71,10 @@ func main() {
 			flags:              buffer[6] >> 5,
 			fragmentOffset:     (BytesToUInt16(buffer[6], buffer[7])) & 0b00011111,
 			timeToLive:         buffer[8],
-			protocol:           buffer[9],
+			protocol:           Protocol(buffer[9]),
 			headerChecksum:     BytesToUInt16(buffer[10], buffer[11]),
-            sourceAddress:      IPAddress(buffer[12:16]),
-            destinationAddress: IPAddress(buffer[16:21]),
+			sourceAddress:      IPAddress(buffer[12:16]),
+			destinationAddress: IPAddress(buffer[16:21]),
 		}
 
 		fmt.Println("    0                   1                   2                   3")
@@ -77,7 +87,7 @@ func main() {
 		fmt.Printf("   |            %d              |  %d  |            %d            |\n", packet.identification, packet.flags, packet.fragmentOffset)
 		fmt.Println("   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+")
 		fmt.Println("   |  Time to Live |    Protocol   |         Header Checksum       |")
-		fmt.Printf("   | %d          |       %d       |               %d              |\n", packet.timeToLive, packet.protocol, packet.headerChecksum)
+		fmt.Printf("   | %d          |       %s       |               %d              |\n", packet.timeToLive, packet.protocol, packet.headerChecksum)
 		fmt.Println("   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+")
 		fmt.Println("   |                       Source Address                          |")
 		fmt.Printf("   |                       %s                                     |\n", packet.sourceAddress)
