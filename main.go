@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"strings"
 	"syscall"
 )
 
@@ -24,12 +25,26 @@ func (p Protocol) String() string {
 	}[p]
 }
 
+type HeaderDefinition struct {
+	name    string
+	bitSize byte
+}
+
+type PDU interface {
+	HeadersDefs() []HeaderDefinition
+	HeadersValues() []string
+}
+
 type Segment struct {
 }
 
 type PacketFlags struct {
 	dontFragment  bool
 	moreFragments bool
+}
+
+func (pf PacketFlags) String() string {
+	return fmt.Sprintf("0   %d   %d", boolToInt(pf.dontFragment), boolToInt(pf.moreFragments))
 }
 
 type Packet struct {
@@ -49,8 +64,38 @@ type Packet struct {
 	segment            Segment
 }
 
-func (p Packet) getVersion() string {
-	return fmt.Sprintf("IPv%d", p.version)
+func (p Packet) HeadersDefs() []HeaderDefinition {
+	return []HeaderDefinition{
+		HeaderDefinition{"Version", 4},
+		HeaderDefinition{"IHL", 4},
+		HeaderDefinition{"TOS", 8},
+		HeaderDefinition{"Total Length", 16},
+		HeaderDefinition{"Identification", 16},
+		HeaderDefinition{"Flags", 3},
+		HeaderDefinition{"Fragment Offset", 13},
+		HeaderDefinition{"TTL", 8},
+		HeaderDefinition{"Protocol", 8},
+		HeaderDefinition{"Header Checksum", 16},
+		HeaderDefinition{"Source Address", 32},
+		HeaderDefinition{"Destination Address", 32},
+	}
+}
+
+func (p Packet) HeadersValues() []string {
+	return []string{
+		p.protocol.String(),
+		fmt.Sprintf("%d", p.ihl),
+		fmt.Sprintf("%d", p.typeOfService),
+		fmt.Sprintf("%d", p.totalLength),
+		fmt.Sprintf("%d", p.identification),
+		p.flags.String(),
+		fmt.Sprintf("%d", p.fragmentOffset),
+		fmt.Sprintf("%d", p.timeToLive),
+		fmt.Sprintf("%d", p.typeOfService),
+		fmt.Sprintf("%d", p.headerChecksum),
+		p.sourceAddress.String(),
+		p.destinationAddress.String(),
+	}
 }
 
 func main() {
@@ -82,26 +127,9 @@ func main() {
 			destinationAddress: IPAddress(buffer[16:21]),
 		}
 
-		fmt.Println("    0                   1                   2                   3")
-		fmt.Println("    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1")
-		fmt.Println("   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+")
-		fmt.Println("   |Version|  IHL  |Type of Service|          Total Length         |")
-		fmt.Printf("   | %s  |   %d   |       %d       |               %d              |\n", packet.getVersion(), packet.ihl, packet.typeOfService, packet.totalLength)
-		fmt.Println("   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+")
-		fmt.Println("   |         Identification        |0|DF|MF|      Fragment Offset    |")
-		fmt.Printf("   |            %d              |0|%d|%d|            %d            |\n", packet.identification, boolToInt(packet.flags.dontFragment), boolToInt(packet.flags.moreFragments), packet.fragmentOffset)
-		fmt.Println("   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+")
-		fmt.Println("   |  Time to Live |    Protocol   |         Header Checksum       |")
-		fmt.Printf("   | %d          |       %s       |               %d              |\n", packet.timeToLive, packet.protocol, packet.headerChecksum)
-		fmt.Println("   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+")
-		fmt.Println("   |                       Source Address                          |")
-		fmt.Printf("   |                       %s                                     |\n", packet.sourceAddress)
-		fmt.Println("   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+")
-		fmt.Println("   |                   Destination Address                        |")
-		fmt.Printf("   |                       %s                                     |\n", packet.destinationAddress)
-		fmt.Println("   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+")
+		pduRenderer := newProtocolDataUnitRenderer(packet, 4)
 
-		fmt.Printf("%+v", packet)
+		pduRenderer.Print()
 	}
 }
 
@@ -115,4 +143,85 @@ func boolToInt(b bool) byte {
 	}
 
 	return 0
+}
+
+type ProtocolDataUnitRenderer struct {
+	pdu     PDU
+	width   byte
+	builder strings.Builder
+}
+
+func newProtocolDataUnitRenderer(pdu PDU, w byte) ProtocolDataUnitRenderer {
+	return ProtocolDataUnitRenderer{
+		width: w,
+		pdu:   pdu,
+	}
+}
+
+func (r *ProtocolDataUnitRenderer) printHeaders() {
+	r.builder.WriteString("  ")
+
+	var i byte
+	for i = 0; i < r.width; i++ {
+		r.builder.WriteByte(i + 48)
+
+		r.builder.WriteString(
+			strings.Repeat(" ", 39),
+		)
+	}
+
+	r.builder.WriteString("\n  ")
+
+	for i = 0; i < r.width*8; i++ {
+		r.builder.WriteByte((i % 10) + 48)
+
+		r.builder.WriteString("   ")
+	}
+
+	r.builder.WriteString("\n")
+}
+
+func (r *ProtocolDataUnitRenderer) Print() {
+	r.printHeaders()
+
+	r.printLineSeparator('=')
+
+	printedHeadersSize := byte(0)
+
+	for _, def := range r.pdu.HeadersDefs() {
+		printedHeadersSize += def.bitSize
+		cellSize := int(4*def.bitSize - 1)
+		r.builder.WriteString("|")
+
+		spaces := cellSize - len(def.name)
+		if spaces/2 < 0 {
+			spaces = 0
+		}
+
+		r.builder.WriteString(strings.Repeat(" ", spaces/2))
+		r.builder.WriteString(def.name)
+		r.builder.WriteString(strings.Repeat(" ", spaces/2))
+
+		if spaces%2 != 0 {
+			r.builder.WriteString(" ")
+		}
+
+		if printedHeadersSize/8 == r.width {
+			r.builder.WriteString("|\n")
+			printedHeadersSize = 0
+			r.printLineSeparator('-')
+			// Print items
+			r.printLineSeparator('=')
+		}
+	}
+
+	fmt.Print(r.builder.String())
+}
+
+func (r *ProtocolDataUnitRenderer) printLineSeparator(char rune) {
+	r.builder.WriteString("|")
+	r.builder.WriteString(
+		strings.Repeat(string(char), 127),
+	)
+	r.builder.WriteString("|\n")
 }
