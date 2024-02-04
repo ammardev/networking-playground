@@ -83,7 +83,7 @@ func (p Packet) HeadersDefs() []HeaderDefinition {
 
 func (p Packet) HeadersValues() []string {
 	return []string{
-		p.protocol.String(),
+		fmt.Sprintf("IPv%d", p.version),
 		fmt.Sprintf("%d", p.ihl),
 		fmt.Sprintf("%d", p.typeOfService),
 		fmt.Sprintf("%d", p.totalLength),
@@ -91,7 +91,7 @@ func (p Packet) HeadersValues() []string {
 		p.flags.String(),
 		fmt.Sprintf("%d", p.fragmentOffset),
 		fmt.Sprintf("%d", p.timeToLive),
-		fmt.Sprintf("%d", p.typeOfService),
+		p.protocol.String(),
 		fmt.Sprintf("%d", p.headerChecksum),
 		p.sourceAddress.String(),
 		p.destinationAddress.String(),
@@ -188,7 +188,9 @@ func (r *ProtocolDataUnitRenderer) Print() {
 
 	printedHeadersSize := byte(0)
 
-	for _, def := range r.pdu.HeadersDefs() {
+	var valuesToPrint []string
+
+	for index, def := range r.pdu.HeadersDefs() {
 		printedHeadersSize += def.bitSize
 		cellSize := int(4*def.bitSize - 1)
 		r.builder.WriteString("|")
@@ -206,12 +208,29 @@ func (r *ProtocolDataUnitRenderer) Print() {
 			r.builder.WriteString(" ")
 		}
 
+		spaces = cellSize - len(r.pdu.HeadersValues()[index])
+
+		val := strings.Repeat(" ", spaces/2) + r.pdu.HeadersValues()[index] + strings.Repeat(" ", spaces/2)
+
+		if spaces%2 != 0 {
+			val = val + " "
+		}
+
+		valuesToPrint = append(valuesToPrint, val)
+
 		if printedHeadersSize/8 == r.width {
 			r.builder.WriteString("|\n")
-			printedHeadersSize = 0
 			r.printLineSeparator('-')
-			// Print items
+			printedHeadersSize = 0
+
+			for _, value := range valuesToPrint {
+				r.builder.WriteString("|")
+				r.builder.WriteString(value)
+			}
+
+			r.builder.WriteString("|\n")
 			r.printLineSeparator('=')
+			valuesToPrint = []string{}
 		}
 	}
 
