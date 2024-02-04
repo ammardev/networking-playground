@@ -66,18 +66,18 @@ type Packet struct {
 
 func (p Packet) HeadersDefs() []HeaderDefinition {
 	return []HeaderDefinition{
-		HeaderDefinition{"Version", 4},
-		HeaderDefinition{"IHL", 4},
-		HeaderDefinition{"TOS", 8},
-		HeaderDefinition{"Total Length", 16},
-		HeaderDefinition{"Identification", 16},
-		HeaderDefinition{"Flags", 3},
-		HeaderDefinition{"Fragment Offset", 13},
-		HeaderDefinition{"TTL", 8},
-		HeaderDefinition{"Protocol", 8},
-		HeaderDefinition{"Header Checksum", 16},
-		HeaderDefinition{"Source Address", 32},
-		HeaderDefinition{"Destination Address", 32},
+		{"Version", 4},
+		{"IHL", 4},
+		{"TOS", 8},
+		{"Total Length", 16},
+		{"Identification", 16},
+		{"Flags", 3},
+		{"Fragment Offset", 13},
+		{"TTL", 8},
+		{"Protocol", 8},
+		{"Header Checksum", 16},
+		{"Source Address", 32},
+		{"Destination Address", 32},
 	}
 }
 
